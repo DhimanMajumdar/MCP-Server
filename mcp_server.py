@@ -9,6 +9,8 @@ from socket import timeout
 import httpx
 import asyncio
 from dotenv import load_dotenv
+from utils import clean_html_to_txt
+
 load_dotenv()
 
 #query="Chroma DB"
@@ -52,7 +54,9 @@ async def fetch_url(url:str):
         # hit request to url
         response = await client.get(url, timeout=30.0)
         #parse and clean response
-        cleaned_response=clean_html_to_txt(response)
+        cleaned_response=clean_html_to_txt(response.text)
+        # return cleaned data
+        return cleaned_response
 
 
 
