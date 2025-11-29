@@ -9,9 +9,12 @@ from socket import timeout
 import httpx
 import asyncio
 from dotenv import load_dotenv
+from fastmcp import FastMCP
 from utils import clean_html_to_txt
 
 load_dotenv()
+
+mcp=FastMCP("docs")
 
 #query="Chroma DB"
 
@@ -61,3 +64,39 @@ async def fetch_url(url:str):
 
 
 # Step3: Read documentation and write code accordingly
+@mcp.tool()
+async def get_docs(query: str, library: str):
+    """
+    Search the latest documentation for ANY library based on a query.
+
+    Args:
+        query: The query to search (e.g. "Publish a package")
+        library: The library name (e.g. "uv", "fastapi", "vercel", "numpy", etc.)
+
+    Returns:
+        Raw doc content with source links (no hardcoding needed).
+    """
+
+    # instead of site:<fixed domain>, we search official docs directly
+    search_query = f'"{library}" official documentation {query}'
+
+    results = await search_web(search_query)
+
+    if len(results.get("organic", [])) == 0:
+        return "No results found"
+
+    text_parts = []
+    for result in results["organic"]:
+        link = result.get("link", "")
+        if not link:
+            continue
+
+        raw = await fetch_url(link)
+        if raw:
+            labeled = f"SOURCE: {link}\n{raw}"
+            text_parts.append(labeled)
+
+    if not text_parts:
+        return "No documentation could be fetched"
+
+    return "\n\n".join(text_parts)
