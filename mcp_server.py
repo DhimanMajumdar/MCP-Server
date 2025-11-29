@@ -1,66 +1,61 @@
-# Main Task: Create AI Webscrapping tool
 
+# Main task: Create AI Webscraping tool
 # Step1: Search the web
 
 import http.client
 import json
 import os
-from socket import timeout
 import httpx
 import asyncio
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from utils import clean_html_to_txt
+
+from utils import clean_html_to_txt, get_response_from_llm
 
 load_dotenv()
 
-mcp=FastMCP("docs")
 
-#query="Chroma DB"
+mcp = FastMCP("docs")
 
 SERPER_URL= "https://google.serper.dev/search"
 
-async def search_web(query:str)-> dict | None:
-
-  payload = json.dumps({
-    "q": query, "num":2
-  })
-  headers = {
+async def search_web(query: str) -> dict | None:
+    payload = json.dumps({"q": query, "num": 2})
+    headers = {
     'X-API-KEY': os.getenv("SERPER_API_KEY"),
     'Content-Type': 'application/json'
-  }
+    }  
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            SERPER_URL, headers=headers, data=payload, timeout=30.0
+        )
+        response.raise_for_status()
+        return response.json()
 
 
+# Step2: Open official documentation
 
-  #conn = http.client.HTTPSConnection("google.serper.dev")
-  async with httpx.AsyncClient() as client:
-    response=await client.post(
-      SERPER_URL,headers=headers, data=payload,
-      timeout=30.0
-    )
-    response.raise_for_status()
-    return response.json()
-    #conn.request("POST", "/search", payload, headers)
-    #res = conn.getresponse()
-    #data = res.read()
-    #return (data.decode("utf-8"))
-
-# res=asyncio.run(search_web(query="Chroma DB"))  
-# print(res)
-
-
-# Step2: Open the official documentation
-
-async def fetch_url(url:str):
-    # client
-      async with httpx.AsyncClient() as client:
-        # hit request to url
+async def fetch_url(url: str):
+    async with httpx.AsyncClient() as client:
         response = await client.get(url, timeout=30.0)
-        #parse and clean response
-        cleaned_response=clean_html_to_txt(response.text)
-        # return cleaned data
+        #cleaned_response = clean_html_to_txt(response.text)
+        system_prompt = "You are an AI Web scraper. Only return valid text, remove and clean every other HTML component that is not required."
+               
+        # Split response into chunks of 4000 characters
+        chunk_size = 4000
+        text_chunks = [response.text[i:i+chunk_size] for i in range(0, len(response.text), chunk_size)]
+        
+        cleaned_parts = []
+        for chunk in text_chunks:
+            cleaned_chunk = get_response_from_llm(
+            user_prompt=chunk, 
+            system_prompt=system_prompt, 
+            model="openai/gpt-oss-20b"
+            )
+            cleaned_parts.append(cleaned_chunk)
+        
+        cleaned_response = "".join(cleaned_parts)
         return cleaned_response
-
 
 
 # Step3: Read documentation and write code accordingly
@@ -103,7 +98,7 @@ async def get_docs(query: str, library: str):
             labeled = f"SOURCE: {link}\n{raw}"
             text_parts.append(labeled)
     return "\n\n".join(text_parts)
-
+        
 
 def main():
     mcp.run(transport="stdio")
