@@ -64,41 +64,44 @@ async def fetch_url(url:str):
 
 
 # Step3: Read documentation and write code accordingly
+
+docs_urls = {
+    "langchain": "python.langchain.com/docs",
+    "llama-index": "docs.llamaindex.ai/en/stable",
+    "openai": "platform.openai.com/docs",
+    "uv": "docs.astral.sh/uv",
+}
+
 @mcp.tool()
 async def get_docs(query: str, library: str):
     """
-    Search the latest documentation for ANY library based on a query.
+    Search the latest docs for a given query and library.
+    Supports langchain, openai, llama-index and uv.
 
     Args:
-        query: The query to search (e.g. "Publish a package")
-        library: The library name (e.g. "uv", "fastapi", "vercel", "numpy", etc.)
+        query: The query to search for (e.g. "Publish a package with UV")
+        library: The library to search in (e.g. "uv")
 
     Returns:
-        Raw doc content with source links (no hardcoding needed).
+        Summarized text from the docs with source links.
     """
+    if library not in docs_urls:
+        raise ValueError(f"Library {library} not supported by this tool")
+    
+    query = f"site:{docs_urls[library]} {query}"
 
-    # instead of site:<fixed domain>, we search official docs directly
-    search_query = f'"{library}" official documentation {query}'
+    results = await search_web(query)
 
-    results = await search_web(search_query)
-
-    if len(results.get("organic", [])) == 0:
+    if len(results["organic"]) == 0:
         return "No results found"
-
+    
     text_parts = []
     for result in results["organic"]:
         link = result.get("link", "")
-        if not link:
-            continue
-
         raw = await fetch_url(link)
         if raw:
             labeled = f"SOURCE: {link}\n{raw}"
             text_parts.append(labeled)
-
-    if not text_parts:
-        return "No documentation could be fetched"
-
     return "\n\n".join(text_parts)
 
 
