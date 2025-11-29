@@ -100,3 +100,11 @@ async def get_docs(query: str, library: str):
         return "No documentation could be fetched"
 
     return "\n\n".join(text_parts)
+
+
+def main():
+    mcp.run(transport="stdio")
+    
+
+if __name__ == "__main__":
+    main()
